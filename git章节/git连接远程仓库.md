@@ -33,6 +33,7 @@ git commit -m "test1"
 4.提交到远程仓库
 git push -u origin master
 现在github默认是main分支，可以提交到main分支，也可以将远程默认分支切换为master分支
+![img_6.png](img_6.png)
 
 这里可能出现报错：git@github.com: Permission denied (publickey).
 
