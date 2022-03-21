@@ -9,7 +9,7 @@ import (
 type Group struct {
 	getter Getter
 	name string
-	mainCache cache  //cache是封装后的lru，Cache是没有封装的lru
+	mainCache *cache  //cache是封装后的lru，Cache是没有封装的lru
 }
 
 var (
@@ -26,7 +26,7 @@ func NewGroup(name string, maxByte int64, getter Getter) *Group {
 	g := &Group{
 		getter: getter,
 		name: name,
-		mainCache: cache{maxByte: maxByte},
+		mainCache: &cache{maxByte: maxByte},
 	}
 	groups[name] = g
 	return g
