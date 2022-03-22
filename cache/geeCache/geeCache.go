@@ -3,6 +3,7 @@ package geeCache
 import (
 	"errors"
 	"fmt"
+	"log"
 	"sync"
 )
 
@@ -10,6 +11,7 @@ type Group struct {
 	getter    Getter
 	name      string
 	mainCache *cache //cache是封装后的lru，Cache是没有封装的lru
+	peer PeerPicker
 }
 
 var (
@@ -60,7 +62,36 @@ func (g *Group) GetCache(key string) (ByteView, error) {
 	return value, nil
 }
 
-func (g *Group) load(key string) (ByteView, error) {
+
+func (g *Group) RegisterPeers(peer PeerPicker) {
+	if g.peer != nil {
+		panic("RegisterPeerPicker called more than once")
+	}
+	g.peer = peer
+}
+
+func (g *Group) load(key string) (value ByteView, err error) {
+	if g.peer != nil {
+		if peer, ok := g.peer.PickPeer(key); ok {
+			if value, err = g.getFromPeer(peer, key); err == nil {
+				return value, nil
+			}
+			log.Println("[GeeCache] Failed to get from peer", err)
+		}
+	}
+
+	return g.getLocally(key)
+}
+
+func (g *Group) getFromPeer(peer PeerGetter, key string) (ByteView, error) {
+	bytes, err := peer.Get(g.name, key)
+	if err != nil {
+		return ByteView{}, err
+	}
+	return ByteView{bytes}, nil
+}
+
+func (g *Group) getLocally(key string) (ByteView, error) {
 	v, err := g.getter.Get(key)
 	if err != nil {
 		return ByteView{}, err

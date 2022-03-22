@@ -1,11 +1,11 @@
 package geeCache
 
 type ByteView struct {
-	b []byte
+	B []byte
 }
 
 func (vb ByteView) Len() int {
-	return len(vb.b)
+	return len(vb.B)
 }
 
 func Copy(b []byte) []byte  {
