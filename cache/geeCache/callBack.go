@@ -1,4 +1,4 @@
-package cache
+package geeCache
 
 //回调函数，从源数据获取数据
 

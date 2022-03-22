@@ -1,4 +1,4 @@
-package cache
+package lru
 
 import (
 	"container/list"
@@ -15,7 +15,7 @@ type Cache struct {
 }
 
 type Entry struct {
-	key string
+	key   string
 	value Value
 }
 

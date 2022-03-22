@@ -1,10 +1,13 @@
-package cache
+package geeCache
 
-import "sync"
+import (
+	"cache/geeCache/lru"
+	"sync"
+)
 
 type cache struct {
 	mutex sync.Mutex
-	lru *Cache
+	lru *lru.Cache
 	maxByte int64
 }
 
@@ -15,7 +18,7 @@ func (c *cache) get(key string)(value ByteView, ok bool)  {
 		return               //todo 这里应该可以返回一个error
 	}
 	if value, ok := c.lru.Get(key); ok {
-		return value.(ByteView), ok  //强转
+		return value.(ByteView), ok //强转
 	}
 	return
 }

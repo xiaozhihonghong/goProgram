@@ -1,4 +1,4 @@
-package cache
+package geeCache
 
 import (
 	"errors"
@@ -7,9 +7,9 @@ import (
 )
 
 type Group struct {
-	getter Getter
-	name string
-	mainCache *cache  //cache是封装后的lru，Cache是没有封装的lru
+	getter    Getter
+	name      string
+	mainCache *cache //cache是封装后的lru，Cache是没有封装的lru
 }
 
 var (
