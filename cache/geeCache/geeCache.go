@@ -1,6 +1,7 @@
 package geeCache
 
 import (
+	"cache/geeCache/singleFlight"
 	"errors"
 	"fmt"
 	"log"
@@ -12,6 +13,7 @@ type Group struct {
 	name      string
 	mainCache *cache //cache是封装后的lru，Cache是没有封装的lru
 	peer PeerPicker
+	loader *singleFlight.Group
 }
 
 var (
@@ -29,6 +31,7 @@ func NewGroup(name string, maxByte int64, getter Getter) *Group {
 		getter: getter,
 		name: name,
 		mainCache: &cache{maxByte: maxByte},
+		loader: &singleFlight.Group{},
 	}
 	groups[name] = g
 	return g
@@ -70,17 +73,22 @@ func (g *Group) RegisterPeers(peer PeerPicker) {
 	g.peer = peer
 }
 
-func (g *Group) load(key string) (value ByteView, err error) {
-	if g.peer != nil {
-		if peer, ok := g.peer.PickPeer(key); ok {
-			if value, err = g.getFromPeer(peer, key); err == nil {
-				return value, nil
+func (g *Group) load(key string) (value ByteView, err error)  {
+	viewi, err := g.loader.Do(key, func() (interface{}, error) {
+		if g.peer != nil {
+			if peer, ok := g.peer.PickPeer(key); ok {
+				if value, err = g.getFromPeer(peer, key); err == nil {
+					return value, nil
+				}
+				log.Println("[GeeCache] Failed to get from peer", err)
 			}
-			log.Println("[GeeCache] Failed to get from peer", err)
 		}
+		return g.getLocally(key)
+	})
+	if err == nil {
+		return viewi.(ByteView), nil
 	}
-
-	return g.getLocally(key)
+	return
 }
 
 func (g *Group) getFromPeer(peer PeerGetter, key string) (ByteView, error) {
