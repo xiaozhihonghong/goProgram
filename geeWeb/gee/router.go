@@ -7,13 +7,13 @@ import (
 
 type router struct {
 	roots map[string]*node
-	handler map[string]handleFunc
+	handler map[string]HandleFunc
 }
 
 func newRouter() *router {
 	return &router{
 		roots: make(map[string]*node),
-		handler: make(map[string]handleFunc),
+		handler: make(map[string]HandleFunc),
 	}
 }
 
@@ -35,7 +35,7 @@ func parsePattern(pattern string) []string {
 }
 
 //添加路由表,key是GET-/或GET-/hello这种形式，方法+-+path形式, root是以method为key，pattern为node的map
-func (r *router) AddRouter(method string, pattern string, handle handleFunc) {
+func (r *router) AddRouter(method string, pattern string, handle HandleFunc) {
 	parts := parsePattern(pattern)
 	//log.Printf("route %4s - %s", method, pattern)
 	key := method + "-" + pattern
@@ -93,10 +93,14 @@ func (r *router) handle(c *Context)  {
 	if n != nil {
 		c.Params = params
 		key := c.Method + "-" + n.pattern   //key变成了替换后的值
-		r.handler[key](c)
+		//r.handler[key](c)
+		c.handlers = append(c.handlers, r.handler[key])   //使用路由找到的中间件
 	} else {
-		c.String(http.StatusNotFound, "404 NOT FOUND: %s\n", c.Path)
+		c.handlers = append(c.handlers, func(context *Context) {
+			c.String(http.StatusNotFound, "404 NOT FOUND: %s\n", c.Path)
+		})
 	}
+	c.Next()
 	//key := c.Method + "-" + c.Path
 	//if handler, ok := r.handler[key];ok {
 	//	handler(c)   //注册的处理方法, todo 这里还有点疑惑，注册方法应该是还没实现

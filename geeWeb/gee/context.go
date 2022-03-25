@@ -18,6 +18,9 @@ type Context struct {
 	Params map[string]string
 	//响应中包含的状态码
 	StatusCode int
+	//中间件
+	handlers []HandleFunc
+	index int
 }
 
 func NewContext(w http.ResponseWriter, req *http.Request) *Context {
@@ -27,6 +30,7 @@ func NewContext(w http.ResponseWriter, req *http.Request) *Context {
 		Method: req.Method,
 		Path:   req.URL.Path,
 		Params: make(map[string]string),
+		index: -1,
 	}
 }
 
@@ -90,4 +94,15 @@ func (c *Context) HTML(code int, html string)  {
 
 //todo，后面还有其他形式的数据，有需要还可以补充
 
+func (c *Context) Next()  {
+	c.index++
+	s := len(c.handlers)
+	for ; c.index < s; c.index++ {
+		c.handlers[c.index](c)
+	}
+}
 
+func (c *Context) Fail(code int, err string)  {
+	c.index = len(c.handlers)
+	c.JSON(code, H{"message":err})
+}
