@@ -15,6 +15,7 @@ type Context struct {
 	//request包含的路径和方法
 	Method string
 	Path   string
+	Params map[string]string
 	//响应中包含的状态码
 	StatusCode int
 }
@@ -25,7 +26,13 @@ func NewContext(w http.ResponseWriter, req *http.Request) *Context {
 		W:      w,
 		Method: req.Method,
 		Path:   req.URL.Path,
+		Params: make(map[string]string),
 	}
+}
+
+func (c *Context) Param(key string) string {
+	value, _ := c.Params[key]
+	return value
 }
 
 // 根据key从post，put表单中查询参数, todo,暂时还不知道有什么用
@@ -51,19 +58,19 @@ func (c *Context) SetHeader(key string, value string)  {
 
 // 构造字符串形式的响应
 func (c *Context) String(code int, format string, values ...interface{})  {
+	c.SetHeader("Content-Type", "text/plain")  //内容类型
 	c.Status(code)
-	c.SetHeader("Content-type", "text/plain")  //内容类型
 	c.W.Write([]byte(fmt.Sprintf(format, values...))) //body的信息
 }
 
 //构造json格式信息，包括头部和body
 func (c *Context) JSON(code int, obj interface{})  {
+	c.SetHeader("Content-Type", "application/json")
 	c.Status(code)
-	c.SetHeader("Content-type", "application/json")
 	encoder := json.NewEncoder(c.W) //返回一个新的编码器写入w
 	if err := encoder.Encode(obj); err != nil {
-		//http.Error(c.w, err.Error(), 500)
-		panic(err)
+		http.Error(c.W, err.Error(), 500)
+		//panic(err)
 		return
 	}
 }
@@ -77,7 +84,7 @@ func (c *Context) Data(code int, data []byte)  {
 //构造HTML形式数据
 func (c *Context) HTML(code int, html string)  {
 	c.Status(code)
-	c.SetHeader("Content-type", "text/html")
+	c.SetHeader("Content-Type", "text/html")
 	c.W.Write([]byte(html))
 }
 

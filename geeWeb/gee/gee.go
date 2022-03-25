@@ -4,6 +4,7 @@ import (
 	"net/http"
 )
 
+type handleFunc func(*Context)
 
 type Engine struct {
 	router *router
@@ -11,7 +12,7 @@ type Engine struct {
 
 func NewEngine() *Engine {
 	return &Engine{
-		router: newrouter(),
+		router: newRouter(),
 	}
 }
 
