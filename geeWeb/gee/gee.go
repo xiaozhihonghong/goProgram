@@ -2,7 +2,9 @@ package gee
 
 import (
 	"net/http"
+	"path"
 	"strings"
+	"text/template"
 )
 
 type HandleFunc func(*Context)
@@ -55,6 +57,9 @@ type Engine struct {
 	*RouterGroup
 	router *router
 	groups []*RouterGroup
+
+	htmlTempaltes *template.Template   //将模板加载进内存
+	funcMap template.FuncMap   //自定义函数渲染
 }
 
 func NewEngine() *Engine {
@@ -120,6 +125,36 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request)  {
 	}
 	c := NewContext(w, r)
 	c.handlers = middleWares
+	c.engine = e
 	e.router.handle(c)
+}
+
+// http.FileSystem只有一个open接口，需要实现
+func (r *RouterGroup) CreateStaticHandler(relativePath string, system http.FileSystem) HandleFunc {
+	abPath := path.Join(r.prefix, relativePath)  //拼接路径
+	//http.FileServer 返回的Handler将会进行查找，并将与文件夹或文件系统有关的内容以参数的形式返回给你
+	fileServer := http.StripPrefix(abPath, http.FileServer(system))  //将请求定向到你通过参数指定的请求处理处之前，将特定的prefix从URL中过滤出去。
+	return func(c *Context) {
+		file := c.Param("filepath")
+		if _, err := system.Open(file);err != nil {
+			c.Status(http.StatusNotFound)
+			return
+		}
+		fileServer.ServeHTTP(c.W, c.Req)  //将fileServer路径文件解析
+	}
+}
+
+func (r *RouterGroup) Static(relativePath string, root string)  {
+	handler := r.CreateStaticHandler(relativePath, http.Dir(root))  //渲染
+	urlPattern := path.Join(relativePath, "/*filepath")
+	r.GET(urlPattern, handler)
+}
+
+func (e *Engine) SetFuncMap(funcMap template.FuncMap)  {
+	e.funcMap = funcMap
+}
+
+func (e *Engine) LoadHTMLGlob(pattern string)  {
+	e.htmlTempaltes = template.Must(template.New("").Funcs(e.funcMap).ParseGlob(pattern))
 }
 

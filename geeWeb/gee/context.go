@@ -21,6 +21,7 @@ type Context struct {
 	//中间件
 	handlers []HandleFunc
 	index int
+	engine *Engine
 }
 
 func NewContext(w http.ResponseWriter, req *http.Request) *Context {
@@ -86,10 +87,13 @@ func (c *Context) Data(code int, data []byte)  {
 }
 
 //构造HTML形式数据
-func (c *Context) HTML(code int, html string)  {
+func (c *Context) HTML(code int, name string, data interface{})  {
 	c.Status(code)
 	c.SetHeader("Content-Type", "text/html")
-	c.W.Write([]byte(html))
+	//c.W.Write([]byte(html))
+	if err := c.engine.htmlTempaltes.ExecuteTemplate(c.W, name, data); err != nil {
+		c.Fail(500, err.Error())
+	}
 }
 
 //todo，后面还有其他形式的数据，有需要还可以补充
