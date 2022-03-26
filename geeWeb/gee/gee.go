@@ -91,7 +91,7 @@ func (r *RouterGroup) AddRouter(method string, comp string, handle HandleFunc) {
 
 //Get,将方法映射到路由表中，通过run方法运行
 func (r *RouterGroup) GET(patter string, handle HandleFunc)  {
-	r.engine.AddRouter("GET", patter, handle)
+	//r.engine.AddRouter("GET", patter, handle)
 	r.AddRouter("GET", patter, handle)        //之前一直运行结果为404，由于使用的上面的语句，单只每次从都是从engine中调用add，
 														// 所以一直都是无r.prefix + comp的状态
 }
