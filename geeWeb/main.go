@@ -5,7 +5,6 @@ import (
 	"geeWeb/gee"
 	"log"
 	"net/http"
-	"text/template"
 	"time"
 )
 
@@ -29,7 +28,18 @@ func FormatAsDate(t time.Time) string {
 
 func main() {
 	r := gee.NewEngine()
+	r.Use(gee.Logger(), gee.Recovery())
+	r.GET("/", func(c *gee.Context) {
+		c.String(http.StatusOK, "Hello Geektutu\n")
+	})
+	// index out of range for testing Recovery()
+	r.GET("/panic", func(c *gee.Context) {
+		names := []string{"geektutu"}
+		c.String(http.StatusOK, names[100])
+	})
+	/*
 	r.Use(gee.Logger())
+	// HTML渲染了解即可，现在都是前后端分离，不需要后端进行模板渲染
 	r.SetFuncMap(template.FuncMap{
 		"FormatAsDate": FormatAsDate,
 	})  //自定义一个渲染函数
@@ -53,6 +63,8 @@ func main() {
 			"now":   time.Date(2019, 8, 17, 0, 0, 0, 0, time.UTC),
 		})
 	})
+	 */
+
 	//v1 := r.Group("/v1")
 	//r.GET("/", func(c *gee.Context) {
 	//	c.HTML(http.StatusOK, "<h1>Hello Gee</h1>")
