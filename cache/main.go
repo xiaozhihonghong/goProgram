@@ -53,7 +53,7 @@ func startAPIServer(apiAddr string, gee *geeCache.Group)  {
 func main() {
 	var port int
 	var api bool
-	flag.IntVar(&port, "port", 8001, "Geecache server port")
+	flag.IntVar(&port, "port", 8001, "Geecache server port") //通过flag.XxxVar()方法将flag绑定到一个变量，该种方式返回值类型
 	flag.BoolVar(&api, "api", false, "Start a api server?")
 	flag.Parse()
 
@@ -73,5 +73,5 @@ func main() {
 	if api {
 		go startAPIServer(apiAddr, gee)
 	}
-	startCacheServer(addrMap[port], addrs, gee)
+	startCacheServer(addrMap[port], addrs, gee)  //启动一个缓存服务
 }

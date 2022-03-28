@@ -89,7 +89,7 @@ func (r *RouterGroup) AddRouter(method string, comp string, handle HandleFunc) {
 	r.engine.router.AddRouter(method, pattern, handle)
 }
 
-//Get,将方法映射到路由表中，通过run方法运行
+//Get,将方法映射到路由表中，通过run方法运行， 使用匿名函数实现
 func (r *RouterGroup) GET(patter string, handle HandleFunc)  {
 	//r.engine.AddRouter("GET", patter, handle)
 	r.AddRouter("GET", patter, handle)        //之前一直运行结果为404，由于使用的上面的语句，单只每次从都是从engine中调用add，
@@ -129,7 +129,7 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request)  {
 	e.router.handle(c)
 }
 
-// http.FileSystem只有一个open接口，需要实现
+// http.FileSystem只有一个open接口，需要实现， 使用闭包实现
 func (r *RouterGroup) CreateStaticHandler(relativePath string, system http.FileSystem) HandleFunc {
 	abPath := path.Join(r.prefix, relativePath)  //拼接路径
 	//http.FileServer 返回的Handler将会进行查找，并将与文件夹或文件系统有关的内容以参数的形式返回给你

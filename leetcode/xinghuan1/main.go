@@ -1,5 +1,6 @@
 package main
 
+//星环科技笔试题1， 一个数据，两两数据交换，使用最少次数使其有序
 import (
 	"bufio"
 	"fmt"
