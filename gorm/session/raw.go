@@ -2,7 +2,9 @@ package session
 
 import (
 	"database/sql"
+	"gorm/dialect"
 	"gorm/log"
+	"gorm/schema"
 	"strings"
 )
 
@@ -10,12 +12,17 @@ import (
 
 type Session struct {
 	db    *sql.DB  //sql原生数据库
+	dialect dialect.Dialect   //解析的约定
+	refTable *schema.Schema  //保存解析后的表
 	sql   strings.Builder  //sql语句，sql的关键字
 	sqlVars []interface{}  //占位符，方sql注入
 }
 
-func New(db *sql.DB) *Session {
-	return &Session{db: db}
+func New(db *sql.DB, d dialect.Dialect) *Session {
+	return &Session{
+		db: db,
+		dialect: d,
+	}
 }
 
 // 就是将语句和占位符都清空

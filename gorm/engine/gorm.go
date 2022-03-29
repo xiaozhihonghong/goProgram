@@ -2,6 +2,7 @@ package engine
 
 import (
 	"database/sql"
+	"gorm/dialect"
 	"gorm/log"
 	"gorm/session"
 )
@@ -9,6 +10,7 @@ import (
 //处理连接数据库和断开数据库的工作
 type Engine struct {
 	db *sql.DB
+	dialect dialect.Dialect
 }
 
 
@@ -23,7 +25,12 @@ func NewEngine(driver, source string) (*Engine, error) {
 		log.Error(err)
 		return nil, err
 	}
-	e := &Engine{db:db}
+	dial, ok := dialect.GetDialect(driver)
+	if !ok {
+		log.Errorf("dialect %s Not Found", driver)
+		return nil, err
+	}
+	e := &Engine{db:db, dialect: dial}
 	log.Info("连接成功")
 	return e, nil
 }
@@ -37,5 +44,5 @@ func (e *Engine) Close()  {
 }
 
 func (e *Engine) NewSession() *session.Session {
-	return session.New(e.db)
+	return session.New(e.db, e.dialect)
 }
