@@ -2,6 +2,7 @@ package session
 
 import (
 	"database/sql"
+	"gorm/clause"
 	"gorm/dialect"
 	"gorm/log"
 	"gorm/schema"
@@ -16,6 +17,7 @@ type Session struct {
 	refTable *schema.Schema  //保存解析后的表
 	sql   strings.Builder  //sql语句，sql的关键字
 	sqlVars []interface{}  //占位符，方sql注入
+	clause  clause.Clause
 }
 
 func New(db *sql.DB, d dialect.Dialect) *Session {
@@ -29,6 +31,7 @@ func New(db *sql.DB, d dialect.Dialect) *Session {
 func (s *Session) Clear()  {
 	s.sql.Reset()
 	s.sqlVars = nil
+	s.clause = clause.Clause{}
 }
 
 //这个函数本质上没什么用，直接使用s.db也是一样的，可能是为了封装的更彻底一点
