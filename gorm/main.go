@@ -14,6 +14,6 @@ func main() {
 	_, _ = s.Raw("CREATE TABLE User(Name text);").Exec()
 	_, _ = s.Raw("CREATE TABLE User(Name text);").Exec()
 	result, _ := s.Raw("INSERT INTO User(`Name`) values (?), (?)", "Tom", "Sam").Exec()
-	count, _ := result.RowsAffected()
+	count, _ := result.RowsAffected()   //获取执行的条数
 	fmt.Printf("Exec success, %d affected\n", count)
 }

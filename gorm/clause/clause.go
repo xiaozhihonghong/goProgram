@@ -16,7 +16,10 @@ const (
 	LIMIT
 	WHERE
 	ORDERBY
-)    //todo 暂时不知道这里为什么这么写
+	UPDATE
+	DELETE
+	COUNT
+)
 
 
 //func NewClause() *Clause {
