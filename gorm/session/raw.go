@@ -13,6 +13,7 @@ import (
 
 type Session struct {
 	db    *sql.DB  //sql原生数据库
+	tx    *sql.Tx   //使用事务操作
 	dialect dialect.Dialect   //解析的约定
 	refTable *schema.Schema  //保存解析后的表
 	sql   strings.Builder  //sql语句，sql的关键字
@@ -27,6 +28,14 @@ func New(db *sql.DB, d dialect.Dialect) *Session {
 	}
 }
 
+type CommonDB interface {
+	Query(query string, args ...interface{})(*sql.Rows, error)
+	QueryRow(query string, args ...interface{}) *sql.Row
+	Exec(query string, args ...interface{}) (sql.Result, error)
+}
+var _ CommonDB = (*sql.DB)(nil)  //就是实例化一个结构体
+var _ CommonDB = (*sql.Tx)(nil)
+
 // 就是将语句和占位符都清空
 func (s *Session) Clear()  {
 	s.sql.Reset()
@@ -35,7 +44,10 @@ func (s *Session) Clear()  {
 }
 
 //这个函数本质上没什么用，直接使用s.db也是一样的，可能是为了封装的更彻底一点
-func (s *Session) DB() *sql.DB {
+func (s *Session) DB() CommonDB {
+	if s.tx != nil {
+		return s.tx
+	}
 	return s.db
 }
 

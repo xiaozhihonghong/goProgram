@@ -1,4 +1,4 @@
-package engine
+package main
 
 import (
 	"database/sql"
@@ -30,7 +30,7 @@ func NewEngine(driver, source string) (*Engine, error) {
 		log.Errorf("dialect %s Not Found", driver)
 		return nil, err
 	}
-	e := &Engine{db:db, dialect: dial}
+	e := &Engine{db: db, dialect: dial}
 	log.Info("连接成功")
 	return e, nil
 }
@@ -45,4 +45,31 @@ func (e *Engine) Close()  {
 
 func (e *Engine) NewSession() *session.Session {
 	return session.New(e.db, e.dialect)
+}
+
+type TxFunc func(*session.Session)(interface{}, error)
+
+func (e *Engine) Transaction(txFunc TxFunc) (res interface{}, err error) {
+	s := e.NewSession()
+	if err := s.Begin(); err != nil {
+		return nil, err
+	}
+
+	defer func() {
+		if p := recover(); p != nil {
+			_ = s.Rollback()
+			panic(p)
+		} else {
+			defer func() {
+				if err != nil {
+					if err != nil {
+						_ = s.Rollback()
+					}
+				}
+				err = s.Commit()
+			}()
+		}
+	}()
+
+	return txFunc(s)
 }

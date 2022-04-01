@@ -9,6 +9,7 @@ import (
 func (s *Session) Insert(values ...interface{}) (int64, error) {
 	recordValues := make([]interface{}, 0)
 	for _, value := range values {
+		s.CallMethod(BeforeInsert, value)
 		table := s.Model(value).GetRefTable()
 		s.clause.Set(clause.INSERT, table.Name, table.FieldNames)   //有判断是否为nil，不会重复写入
 		recordValues = append(recordValues, table.RecordValues(value))
@@ -25,6 +26,7 @@ func (s *Session) Insert(values ...interface{}) (int64, error) {
 
 //todo，反射还需要后续好好学习，东西很多
 func (s *Session) Find(values interface{}) error {
+	s.CallMethod(BeforeQuery, nil)
 	destSlice := reflect.Indirect(reflect.ValueOf(values))
 	destType := destSlice.Type().Elem()
 	table := s.Model(reflect.New(destType).Elem().Interface()).GetRefTable()
@@ -46,6 +48,7 @@ func (s *Session) Find(values interface{}) error {
 		if err := rows.Scan(values...); err != nil {  //将values写入
 			return err
 		}
+		s.CallMethod(AfterQuery, dest.Addr().Interface())
 		destSlice.Set(reflect.Append(destSlice, dest))
 	}
 	return rows.Close()
