@@ -1,6 +1,7 @@
 package geerpc
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"log"
 	"net"
 	"sync"
+	"time"
 )
 
 //实现并发和异步的客户端
@@ -150,13 +152,21 @@ func newClientCodec(cc codec.Codec, opt *Option) *Client {
 	return client
 }
 
-//创建客户端的连接
-func Dial(network, address string, opts ...*Option) (client *Client, err error)  {
+//加一层处理客户端超时
+type clientResult struct {
+	client  *Client
+	err     error
+}
+
+type newClientFunc func(conn net.Conn, opt *Option) (client *Client, err error)
+
+//处理连接超时
+func dialTimeout(clientFunc newClientFunc, network, address string, opts ...*Option) (client *Client, err error) {
 	opt, err := parseOptions(opts...)
 	if err != nil {
 		return nil, err
 	}
-	conn, err := net.Dial(network, address)  //创建连接
+	conn, err := net.DialTimeout(network, address, opt.ConnectTimeout)  //创建连接
 	if err != nil {
 		return nil, err
 	}
@@ -165,7 +175,27 @@ func Dial(network, address string, opts ...*Option) (client *Client, err error) 
 			_ = conn.Close()
 		}
 	}()
-	return NewClient(conn, opt)   //编码并监听接收信息
+	ch := make(chan clientResult)
+	go func() {
+		client, err := clientFunc(conn, opt)   //这里就是在编码并监听接收信息
+		ch <- clientResult{client:client, err: err}
+	}()
+	if opt.ConnectTimeout == 0 {   //无超时处理
+		result := <- ch
+		return result.client, result.err
+	}
+	select {
+	case <-time.After(opt.ConnectTimeout):   //超时连接
+		return nil, fmt.Errorf("rpc client:connect timeout:expect within %s", opt.ConnectTimeout)
+	case result := <- ch:   //未超时
+		return result.client, result.err
+	}
+	//return NewClient(conn, opt)   //编码并监听接收信息
+}
+
+//创建客户端的连接
+func Dial(network, address string, opts ...*Option) (client *Client, err error) {
+	return dialTimeout(NewClient, network, address, opts...)
 }
 
 //保证opt正确性
@@ -226,8 +256,16 @@ func (client *Client) Go(serviceMethod string, args, reply interface{}, done cha
 	return call
 }
 
-//同步发送
-func (client *Client) Call(serviceMethod string, args, reply interface{}) error {
-	call := <- client.Go(serviceMethod, args, reply, make(chan *Call, 1)).Done  //阻塞Done,等待响应返回，同步
-	return call.Error
+//同步发送，处理超时
+func (client *Client) Call(ctx context.Context, serviceMethod string, args, reply interface{}) error {
+	//call := <- client.Go(serviceMethod, args, reply, make(chan *Call, 1)).Done  //阻塞Done,等待响应返回，同步
+	call := client.Go(serviceMethod, args, reply, make(chan *Call, 1))
+	select {
+	case <- ctx.Done():  //处理超时
+		client.RemoveCall(call.Seq)
+		return errors.New("rpc client:call failed:" + ctx.Err().Error())
+	case call := <- call.Done:
+		return call.Error
+	}
+	//return call.Error
 }

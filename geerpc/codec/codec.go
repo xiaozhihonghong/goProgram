@@ -18,7 +18,7 @@ type Codec interface {
 	Write(*Header, interface{}) error   //这是编码，相当于编码写入之后输出响应
 }
 
-//todo，定义一个新的类型，本质上Type就是string，所以这样定义有什么好处？，本质上和把Type定义为struct是同一种方式
+//定义一个新的类型，本质上Type就是string，所以这样定义有什么好处？，本质上和把Type定义为struct是同一种方式
 //可能事项吧下面的map的key定义死为json和gob两种形式，防止输入其他的错误
 type Type string
 
