@@ -2,13 +2,15 @@ package geerpc
 
 import (
 	"encoding/json"
-	"fmt"
+	"errors"
 	"geerpc/codec"
 	"io"
 	"log"
 	"net"
 	"reflect"
+	"strings"
 	"sync"
+	"sync/atomic"
 )
 
 /*
@@ -31,7 +33,9 @@ var DefaultOption = &Option{
 	CodeType: codec.GobType,
 }
 
-type Server struct {}
+type Server struct {
+	serviceMap  sync.Map
+}
 
 func NewServer() *Server {
 	return &Server{}
@@ -39,25 +43,57 @@ func NewServer() *Server {
 
 var DefaultServer = NewServer()
 
+func (server *Server) Register(rcvr interface{}) error {
+	s := newService(rcvr)
+	if _, dup := server.serviceMap.LoadOrStore(s.name, s); dup {
+		return errors.New("rpc service already defined:" + s.name)
+	}
+	return nil
+}
+
+func Register(rcvr interface{}) error {
+	return DefaultServer.Register(rcvr)
+}
+
+func (server *Server) findService(serviceMethod string) (svc *service, mtype *methodType, err error) {
+	dot := strings.LastIndex(serviceMethod, ".")
+	if dot < 0 {
+		err = errors.New("rpc server:service/method request ill-formed: "+ serviceMethod)
+		return
+	}
+	serviceName, methodName := serviceMethod[:dot], serviceMethod[dot+1:]
+	svic, ok := server.serviceMap.Load(serviceName)
+	if !ok {
+		err = errors.New("rpc server:can't found service: "+ serviceName)
+		return
+	}
+	svc = svic.(*service)
+	mtype = svc.method[methodName]
+	if mtype == nil {
+		err = errors.New("rpc server:can't found method: "+ methodName)
+	}
+	return
+}
+
 //实现接受和处理请求,直接调用这个接口就可以启动服务
 func Accept(listener net.Listener)  {
 	DefaultServer.Accept(listener)
 }
 
 //实现一个accept监听请求,定义一个listen监听器，然后accept接受请求，最后handle处理请求，这里的监听器为net.Listener
-func (s *Server) Accept(listener net.Listener)  {
+func (server *Server) Accept(listener net.Listener)  {
 	 for {
 	 	conn, err := listener.Accept()
 	 	if err != nil {
 	 		log.Println("rpc server: accept error:", err)
 			return
 		}
-		go s.Serveconn(conn)
+		go server.Serveconn(conn)
 	 }
 }
 
 //实现处理接受的请求
-func (s *Server) Serveconn(conn io.ReadWriteCloser)  {
+func (server *Server) Serveconn(conn io.ReadWriteCloser)  {
 	/*
 	1、使用json反序列化option实例
 	2、检查里面的字段是否正确
@@ -75,11 +111,11 @@ func (s *Server) Serveconn(conn io.ReadWriteCloser)  {
 		log.Println("rpc server: invalid codec type %s:", opt.CodeType)
 		return
 	}
-	s.serveCodec(f(conn))
+	server.serveCodec(f(conn))
 }
 
 var invalidRequest = struct {}{}
-func (s *Server) serveCodec(cc codec.Codec)  {
+func (server *Server) serveCodec(cc codec.Codec)  {
 	/*
 	1、接收请求
 	2、处理请求
@@ -88,17 +124,17 @@ func (s *Server) serveCodec(cc codec.Codec)  {
 	sending := new(sync.Mutex)
 	wg := new(sync.WaitGroup)
 	for {
-		req, err := s.readRequest(cc)
+		req, err := server.readRequest(cc)
 		if err != nil {
 			if req == nil {
 				break
 			}
 			req.h.Error = err.Error()
-			s.sendResponse(cc, req.h, invalidRequest, sending)  //表示这是发送的一个无效的响应
+			server.sendResponse(cc, req.h, invalidRequest, sending)  //表示这是发送的一个无效的响应
 		}
 
 		wg.Add(1)
-		go s.handleRequest(cc, req, sending, wg)
+		go server.handleRequest(cc, req, sending, wg)
 	}
 	wg.Wait()
 	_ = cc.Close()
@@ -107,9 +143,11 @@ func (s *Server) serveCodec(cc codec.Codec)  {
 type request struct {
 	h   *codec.Header   //head
 	agrv, replyv reflect.Value   //body,请求和响应
+	mtype  *methodType
+	svc  *service
 }
 
-func (s *Server) readRequestHeader(cc codec.Codec) (*codec.Header, error) {
+func (server *Server) readRequestHeader(cc codec.Codec) (*codec.Header, error) {
 	var h codec.Header
 	if err := cc.ReadHeader(&h); err != nil {
 		if err != io.EOF && err != io.ErrUnexpectedEOF {
@@ -121,36 +159,65 @@ func (s *Server) readRequestHeader(cc codec.Codec) (*codec.Header, error) {
 }
 
 //实现接受请求
-func (s *Server) readRequest(cc codec.Codec) (*request, error) {
-	h, err := s.readRequestHeader(cc)
+func (server *Server) readRequest(cc codec.Codec) (*request, error) {
+	h, err := server.readRequestHeader(cc)
 	if err != nil {
 		return nil, err
 	}
 	req := &request{
 		h: h,
 	}
-	// todo, 目前还不知道body的类型，后续实现
-	req.agrv = reflect.New(reflect.TypeOf(""))
-	if err = cc.ReadBody(req.agrv.Interface()); err != nil {
-		log.Println("rpc server: read argv err:", err)
+	//req.agrv = reflect.New(reflect.TypeOf(""))
+	//if err = cc.ReadBody(req.agrv.Interface()); err != nil {
+	//	log.Println("rpc server: read argv err:", err)
+	//}
+	req.svc, req.mtype, err = server.findService(h.ServiceMethod)
+	if err != nil {
+		return req, err
+	}
+	req.agrv = req.mtype.NewArgv()
+	req.replyv = req.mtype.NewReplyv()
+	argvi := req.agrv.Interface()
+	if req.agrv.Type().Kind() != reflect.Ptr {
+		argvi = req.agrv.Addr().Interface()
+	}
+	if err = cc.ReadBody(argvi); err != nil {
+		log.Println("rpc server: read body err:", err)
+		return req, err
 	}
 	return req, nil
 }
 
 //实现处理请求
-func (s *Server) handleRequest(cc codec.Codec, req *request, mutex *sync.Mutex, wg *sync.WaitGroup)  {
+func (server *Server) handleRequest(cc codec.Codec, req *request, mutex *sync.Mutex, wg *sync.WaitGroup)  {
 	defer wg.Done()
-	log.Println(req.h, req.agrv.Elem())
-	req.replyv = reflect.ValueOf(fmt.Sprintf("geerpc resp %d", req.h.Seq))
-	s.sendResponse(cc, req.h, req.replyv.Interface(), mutex)
+	//log.Println(req.h, req.agrv.Elem())
+	//req.replyv = reflect.ValueOf(fmt.Sprintf("geerpc resp %d", req.h.Seq))
+	err := req.svc.call(req.mtype, req.agrv, req.replyv)
+	if err != nil {
+		req.h.Error = err.Error()
+		server.sendResponse(cc, req.h, invalidRequest, mutex)
+		return
+	}
+	server.sendResponse(cc, req.h, req.replyv.Interface(), mutex)
 }
 
-func (s *Server) sendResponse(cc codec.Codec, h *codec.Header, body interface{}, mutex *sync.Mutex)  {
+func (server *Server) sendResponse(cc codec.Codec, h *codec.Header, body interface{}, mutex *sync.Mutex)  {
 	mutex.Lock()
 	defer mutex.Unlock()
 	if err := cc.Write(h, body); err != nil {
 		log.Println("rpc server write response error:", err)
 	}
+}
+
+func (s *service) call(m *methodType, argv, replyv reflect.Value) error {
+	atomic.AddUint64(&m.numCalls, 1)
+	f := m.method.Func
+	returnValues := f.Call([]reflect.Value{s.rcvr, argv, replyv})
+	if errInter := returnValues[0].Interface(); errInter != nil {
+		return errInter.(error)
+	}
+	return nil
 }
 
 
