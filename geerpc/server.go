@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"net/http"
 	"reflect"
 	"strings"
 	"sync"
@@ -19,7 +20,12 @@ import (
 实现服务端的通信过程
  */
 
-const MagicNumber = 0x3bef5c
+const (
+	MagicNumber = 0x3bef5c
+	connected   = "200 Connected to Gee RPC"
+	defaultRPCPath = "/_geerpc_"
+	defaultDebugPath = "/debug/geerpc"
+)
 
 //rpc的编码头
 
@@ -108,7 +114,7 @@ func (server *Server) Serveconn(conn io.ReadWriteCloser)  {
 	defer func() {_ = conn.Close()}()
 	var opt Option
 	if err := json.NewDecoder(conn).Decode(&opt); err != nil {
-		log.Println("rpc server:options error:", err)
+		log.Println("rpc server: options error: ", err)
 		return
 	}
 	f := codec.NewCodecFuncMap[opt.CodeType]
@@ -243,6 +249,38 @@ func (s *service) call(m *methodType, argv, replyv reflect.Value) error {
 		return errInter.(error)
 	}
 	return nil
+}
+
+//实现http协议转换
+// ServeHTTP implements an http.Handler that answers RPC requests.
+func (server *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	if req.Method != "CONNECT" {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		_, _ = io.WriteString(w, "405 must CONNECT\n")
+		return
+	}
+	conn, _, err := w.(http.Hijacker).Hijack()
+	if err != nil {
+		log.Print("rpc hijacking ", req.RemoteAddr, ": ", err.Error())
+		return
+	}
+	_, _ = io.WriteString(conn, "HTTP/1.0 "+connected+"\n\n")
+	server.Serveconn(conn)
+}
+
+// HandleHTTP registers an HTTP handler for RPC messages on rpcPath,
+// and a debugging handler on debugPath.
+// It is still necessary to invoke http.Serve(), typically in a go statement.
+func (server *Server) HandleHTTP() {
+	http.Handle(defaultRPCPath, server)
+	http.Handle(defaultDebugPath, debugHTTP{server})
+	log.Println("rpc server debug path:", defaultDebugPath)
+}
+
+// HandleHTTP is a convenient approach for default server to register HTTP handlers
+func HandleHTTP() {
+	DefaultServer.HandleHTTP()
 }
 
 
