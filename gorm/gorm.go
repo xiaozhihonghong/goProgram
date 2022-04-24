@@ -13,7 +13,6 @@ type Engine struct {
 	dialect dialect.Dialect
 }
 
-
 //数据库的连接
 func NewEngine(driver, source string) (*Engine, error) {
 	db, err := sql.Open(driver, source)
