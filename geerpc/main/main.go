@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"sync"
 	"time"
+	_ "google.golang.org/grpc"
 )
 
 type Foo int
