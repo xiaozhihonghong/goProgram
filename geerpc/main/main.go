@@ -5,12 +5,12 @@ import (
 	"geerpc"
 	"geerpc/registry"
 	"geerpc/xclient"
+	_ "google.golang.org/grpc"
 	"log"
 	"net"
 	"net/http"
 	"sync"
 	"time"
-	_ "google.golang.org/grpc"
 )
 
 type Foo int
