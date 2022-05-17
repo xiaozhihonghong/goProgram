@@ -3,6 +3,7 @@ module etcdexp
 go 1.16
 
 require (
+	github.com/baidubce/bce-sdk-go v0.9.114 // indirect
 	github.com/coreos/etcd v3.3.25+incompatible // indirect
 	github.com/coreos/go-semver v0.3.0 // indirect
 	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf // indirect
