@@ -27,7 +27,7 @@ func readConfig() *Config {
 	//反射值有两个，一个type和一个value，分别使用Typeof和Valueof获取
 	config := Config{}
 	t := reflect.TypeOf(config)    //接口的类型描述信息，比如“int”和“string”
-	//value := reflect.ValueOf(config)   //返回接口的值类型
+	//v := reflect.ValueOf(config)   //返回接口的值类型
 	//fmt.Println(v.Kind())   //返回一个类型，这里是个指针
 	//fmt.Println(v.Elem())  //可以通过 reflect.Elem() 方法获取这个指针指向的元素类型
 	value := reflect.Indirect(reflect.ValueOf(&config)) //reflect.Indirect()函数用于获取v指向的值，即，如果v是nil指针，
@@ -47,9 +47,14 @@ func readConfig() *Config {
 }
 
 func main() {
-	os.Setenv("CONFIG_SERVER_NAME", "global_server")
-	os.Setenv("CONFIG_SERVER_IP", "10.0.0.1")
-	os.Setenv("CONFIG_SERVER_URL", "geektutu.com")
-	c := readConfig()
-	fmt.Printf("%+v", c)
+	//os.Setenv("CONFIG_SERVER_NAME", "global_server")
+	//os.Setenv("CONFIG_SERVER_IP", "10.0.0.1")
+	//os.Setenv("CONFIG_SERVER_URL", "geektutu.com")
+	//c := readConfig()
+	//fmt.Printf("%+v", c)
+	a := 8
+	v := reflect.ValueOf(a)
+	fmt.Println("v=", v)
+	k := v.Kind()
+	fmt.Println(k)
 }

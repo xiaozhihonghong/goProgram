@@ -15,7 +15,7 @@ type Field struct {
 
 //这个结构体是整个表的映射
 type Schema struct {
-	Model interface{}  //表
+	Model interface{}  //传入表的struct实例
 	Name string        //表名
 	Fields []*Field   //所有字段
 	FieldNames []string  //所有字段的名字
