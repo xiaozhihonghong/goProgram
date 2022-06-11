@@ -1,6 +1,9 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"go/importer"
+)
 
 func dfs(num int, ) int {
 	hashMap := make(map[int]int, 0)
@@ -42,4 +45,5 @@ func numTrees2(num int) int {
 func main() {
 	res := numTrees2(5)
 	fmt.Println(res)
+	importer.Default()
 }
