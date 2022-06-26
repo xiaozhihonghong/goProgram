@@ -1,6 +1,8 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+)
 
 func longestConsecutive(nums []int) int {
 	hashMap := make(map[int]bool)
